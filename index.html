@@ -85,7 +85,8 @@
     <div class="tile">
       <span class="label">Seguro pagado</span>
       <span class="num" id="t-pago-pct">—</span>
-      <span class="sub" id="t-pago-monto">—</span>
+      <span class="sub" id="t-pago-usuario">—</span>
+      <span class="sub" id="t-pago-conductor">—</span>
     </div>
   </div>
 
@@ -142,7 +143,7 @@ var CATEGORIAS = [
   {dimension:"reportado_seguro",categoria:"Si",casos:499,pct:95.4},
   {dimension:"reportado_seguro",categoria:"No",casos:21,pct:4.0},
   {dimension:"reportado_seguro",categoria:"No especificado",casos:3,pct:0.6},
-  {dimension:"seguro_pago",categoria:"Si",casos:86,pct:16.4,monto_usd:20233.78,monto_bs:9510336.96},
+  {dimension:"seguro_pago",categoria:"Si",casos:86,pct:16.4,usuario_casos:75,usuario_monto_usd:20233.78,conductor_casos:11,conductor_monto_bs:9510336.96},
   {dimension:"seguro_pago",categoria:"Pendiente",casos:44,pct:8.4},
   {dimension:"seguro_pago",categoria:"No",casos:192,pct:36.7},
   {dimension:"seguro_pago",categoria:"No especificado",casos:201,pct:38.4}
@@ -189,7 +190,8 @@ var COMPARACION = [
 
   var pago = row(CATEGORIAS,{dimension:'seguro_pago',categoria:'Si'});
   document.getElementById('t-pago-pct').textContent = fmtPct(pago.pct);
-  document.getElementById('t-pago-monto').textContent = fmtInt.format(pago.casos)+' casos · '+fmtMoney.format(pago.monto_usd)+' + Bs. '+fmtBs.format(pago.monto_bs);
+  document.getElementById('t-pago-usuario').textContent = 'Usuario: '+fmtInt.format(pago.usuario_casos)+' casos · '+fmtMoney.format(pago.usuario_monto_usd);
+  document.getElementById('t-pago-conductor').textContent = 'Conductor: '+fmtInt.format(pago.conductor_casos)+' casos · Bs. '+fmtBs.format(pago.conductor_monto_bs);
 
   function ns(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); }
 
