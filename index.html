@@ -27,9 +27,16 @@
     padding:32px max(18px,env(safe-area-inset-left,0px)) 64px max(18px,env(safe-area-inset-right,0px));
     font-size:17px; line-height:1.5;
   }
-  .wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:34px;}
-  header h1{font-family:'Source Serif 4',serif;font-weight:600;font-size:clamp(28px,4.4vw,38px);margin:0 0 8px;text-wrap:balance;}
-  header p{margin:0;color:var(--fg-muted);font-size:16px;max-width:72ch;}
+  .wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:30px;}
+  header h1{font-family:'Source Serif 4',serif;font-weight:600;font-size:clamp(28px,4.4vw,38px);margin:0;text-wrap:balance;}
+  .tabs{display:flex;gap:6px;border-bottom:2px solid var(--border);}
+  .tab-btn{
+    appearance:none;border:none;background:none;cursor:pointer;color:var(--fg-muted);
+    font-family:inherit;font-size:16px;font-weight:600;padding:12px 18px;border-radius:10px 10px 0 0;
+    margin-bottom:-2px;border-bottom:2px solid transparent;
+  }
+  .tab-btn:hover{color:var(--fg);}
+  .tab-btn.active{color:var(--fg);border-bottom-color:var(--accent);}
   .hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;}
   .tile{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:6px;}
   .tile .label{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);font-weight:600;}
@@ -66,11 +73,17 @@
     <h1>Siniestros, Enero a Septiembre 2026</h1>
   </header>
 
+  <div class="tabs" id="tabs">
+    <button class="tab-btn" data-tab="conductor">Conductor</button>
+    <button class="tab-btn" data-tab="usuario">Usuario</button>
+    <button class="tab-btn" data-tab="general">General</button>
+  </div>
+
   <div class="hero">
     <div class="tile">
       <span class="label">Total de casos</span>
       <span class="num" id="t-total">—</span>
-      <span class="sub up" id="t-delta">—</span>
+      <span class="sub" id="t-delta">—</span>
     </div>
     <div class="tile">
       <span class="label">Viaje activo (Sí)</span>
@@ -85,8 +98,8 @@
     <div class="tile">
       <span class="label">Seguro pagado</span>
       <span class="num" id="t-pago-pct">—</span>
-      <span class="sub" id="t-pago-usuario">—</span>
-      <span class="sub" id="t-pago-conductor">—</span>
+      <span class="sub" id="t-pago-l1">—</span>
+      <span class="sub" id="t-pago-l2">—</span>
     </div>
   </div>
 
@@ -101,12 +114,12 @@
   </section>
 
   <section>
-    <h2>Desglose por categoría, con comparación vs el reporte de Slack</h2>
+    <h2 id="cat-grid-h2">Desglose por categoría</h2>
     <div class="cat-grid" id="cat-grid"></div>
   </section>
 
-  <section>
-    <h2>Tabla comparativa completa</h2>
+  <section id="cmp-section">
+    <h2>Tabla comparativa vs reporte Slack</h2>
     <div class="table-wrap">
       <table id="cmp-table">
         <thead>
@@ -123,48 +136,77 @@
 <div class="tooltip" id="tooltip"></div>
 
 <script>
-var POR_MES = [
-  {orden:1,mes:"Enero",casos:25},{orden:2,mes:"Febrero",casos:61},{orden:3,mes:"Marzo",casos:69},
-  {orden:4,mes:"Abril",casos:47},{orden:5,mes:"Mayo",casos:44},{orden:6,mes:"Junio",casos:54},
-  {orden:7,mes:"Julio",casos:65},{orden:8,mes:"Agosto",casos:83},{orden:9,mes:"Septiembre",casos:75}
-];
-var POR_CIUDAD = [
-  {ciudad:"Caracas",casos:278},{ciudad:"Maracaibo",casos:100},{ciudad:"Valencia",casos:28},
-  {ciudad:"Barquisimeto",casos:27},{ciudad:"Guayana City",casos:23},{ciudad:"Otras ciudades",casos:20},
-  {ciudad:"Maracay",casos:19},{ciudad:"Barinas",casos:8},{ciudad:"Lecheria",casos:7},
-  {ciudad:"Cabimas",casos:7},{ciudad:"Guarenas",casos:6}
-];
-var CATEGORIAS = [
-  {dimension:"viaje_activo",categoria:"Si",casos:431,pct:82.4},
-  {dimension:"viaje_activo",categoria:"No",casos:90,pct:17.2},
-  {dimension:"viaje_activo",categoria:"No especificado",casos:2,pct:0.4},
-  {dimension:"quien_reporto",categoria:"Usuario",casos:265,pct:50.7},
-  {dimension:"quien_reporto",categoria:"Conductor",casos:258,pct:49.3},
-  {dimension:"reportado_seguro",categoria:"Si",casos:499,pct:95.4},
-  {dimension:"reportado_seguro",categoria:"No",casos:21,pct:4.0},
-  {dimension:"reportado_seguro",categoria:"No especificado",casos:3,pct:0.6},
-  {dimension:"seguro_pago",categoria:"Si",casos:86,pct:16.4,usuario_casos:75,usuario_monto_usd:20233.78,conductor_casos:11,conductor_monto_bs:9510336.96},
-  {dimension:"seguro_pago",categoria:"Pendiente",casos:44,pct:8.4},
-  {dimension:"seguro_pago",categoria:"No",casos:192,pct:36.7},
-  {dimension:"seguro_pago",categoria:"No especificado",casos:201,pct:38.4}
-];
-var COMPARACION = [
-  {campo:"Total de casos",categoria:"Total",slack_casos:423,slack_pct:100,nuevo_casos:523,nuevo_pct:100},
-  {campo:"Viaje activo",categoria:"Si",slack_casos:341,slack_pct:80.6,nuevo_casos:431,nuevo_pct:82.4},
-  {campo:"Viaje activo",categoria:"No",slack_casos:43,slack_pct:10.2,nuevo_casos:90,nuevo_pct:17.2},
-  {campo:"Viaje activo",categoria:"No especificado",slack_casos:39,slack_pct:9.2,nuevo_casos:2,nuevo_pct:0.4},
-  {campo:"Quien reporto",categoria:"Ambos",slack_casos:153,slack_pct:36.2,nuevo_casos:null,nuevo_pct:null},
-  {campo:"Quien reporto",categoria:"Conductor",slack_casos:150,slack_pct:35.5,nuevo_casos:258,nuevo_pct:49.3},
-  {campo:"Quien reporto",categoria:"Usuario",slack_casos:98,slack_pct:23.2,nuevo_casos:265,nuevo_pct:50.7},
-  {campo:"Quien reporto",categoria:"No especificado",slack_casos:22,slack_pct:5.2,nuevo_casos:0,nuevo_pct:0},
-  {campo:"Reportado a seguro",categoria:"Si",slack_casos:22,slack_pct:5.2,nuevo_casos:499,nuevo_pct:95.4},
-  {campo:"Reportado a seguro",categoria:"No",slack_casos:400,slack_pct:94.6,nuevo_casos:21,nuevo_pct:4.0},
-  {campo:"Reportado a seguro",categoria:"No especificado",slack_casos:1,slack_pct:0.2,nuevo_casos:3,nuevo_pct:0.6},
-  {campo:"Seguro pago",categoria:"Si",slack_casos:0,slack_pct:0,nuevo_casos:86,nuevo_pct:16.4},
-  {campo:"Seguro pago",categoria:"Pendiente",slack_casos:null,slack_pct:null,nuevo_casos:44,nuevo_pct:8.4},
-  {campo:"Seguro pago",categoria:"No",slack_casos:0,slack_pct:0,nuevo_casos:192,nuevo_pct:36.7},
-  {campo:"Seguro pago",categoria:"No especificado",slack_casos:423,slack_pct:100,nuevo_casos:201,nuevo_pct:38.4}
-];
+var DATA = {
+  conductor: {
+    total: 256,
+    por_mes: [
+      {orden:1,mes:"Enero",casos:12},{orden:2,mes:"Febrero",casos:30},{orden:3,mes:"Marzo",casos:33},
+      {orden:4,mes:"Abril",casos:25},{orden:5,mes:"Mayo",casos:23},{orden:6,mes:"Junio",casos:28},
+      {orden:7,mes:"Julio",casos:32},{orden:8,mes:"Agosto",casos:41},{orden:9,mes:"Septiembre",casos:32}
+    ],
+    por_ciudad: [
+      {ciudad:"Caracas",casos:130},{ciudad:"Maracaibo",casos:47},{ciudad:"Barquisimeto",casos:13},
+      {ciudad:"Valencia",casos:13},{ciudad:"Guayana City",casos:12},{ciudad:"Maracay",casos:12},
+      {ciudad:"Lecheria",casos:6},{ciudad:"Cabimas",casos:6},{ciudad:"Barinas",casos:5},
+      {ciudad:"Otras ciudades",casos:12}
+    ],
+    viaje_activo: [{categoria:"Si",casos:165,pct:64.5},{categoria:"No",casos:89,pct:34.8},{categoria:"No especificado",casos:2,pct:0.8}],
+    reportado_seguro: [{categoria:"Si",casos:240,pct:93.8},{categoria:"No",casos:13,pct:5.1},{categoria:"No especificado",casos:3,pct:1.2}],
+    seguro_pago: [{categoria:"Si",casos:12,pct:4.7,monto_bs:9710336.96},{categoria:"Pendiente",casos:43,pct:16.8},{categoria:"No",casos:2,pct:0.8},{categoria:"No especificado",casos:199,pct:77.7}]
+  },
+  usuario: {
+    total: 265,
+    por_mes: [
+      {orden:1,mes:"Enero",casos:13},{orden:2,mes:"Febrero",casos:31},{orden:3,mes:"Marzo",casos:36},
+      {orden:4,mes:"Abril",casos:22},{orden:5,mes:"Mayo",casos:21},{orden:6,mes:"Junio",casos:26},
+      {orden:7,mes:"Julio",casos:32},{orden:8,mes:"Agosto",casos:42},{orden:9,mes:"Septiembre",casos:42}
+    ],
+    por_ciudad: [
+      {ciudad:"Caracas",casos:147},{ciudad:"Maracaibo",casos:53},{ciudad:"Valencia",casos:14},
+      {ciudad:"Barquisimeto",casos:14},{ciudad:"Guayana City",casos:12},{ciudad:"Maracay",casos:7},
+      {ciudad:"Guarenas",casos:4},{ciudad:"Barinas",casos:3},{ciudad:"Otras ciudades",casos:11}
+    ],
+    viaje_activo: [{categoria:"Si",casos:265,pct:100.0},{categoria:"No",casos:0,pct:0.0},{categoria:"No especificado",casos:0,pct:0.0}],
+    reportado_seguro: [{categoria:"Si",casos:257,pct:97.0},{categoria:"No",casos:8,pct:3.0},{categoria:"No especificado",casos:0,pct:0.0}],
+    seguro_pago: [{categoria:"Si",casos:75,pct:28.3,monto_usd:20233.78},{categoria:"Pendiente",casos:0,pct:0.0},{categoria:"No",casos:190,pct:71.7},{categoria:"No especificado",casos:0,pct:0.0}]
+  },
+  general: {
+    total: 521,
+    por_mes: [
+      {orden:1,mes:"Enero",casos:25},{orden:2,mes:"Febrero",casos:61},{orden:3,mes:"Marzo",casos:69},
+      {orden:4,mes:"Abril",casos:47},{orden:5,mes:"Mayo",casos:44},{orden:6,mes:"Junio",casos:54},
+      {orden:7,mes:"Julio",casos:64},{orden:8,mes:"Agosto",casos:83},{orden:9,mes:"Septiembre",casos:74}
+    ],
+    por_ciudad: [
+      {ciudad:"Caracas",casos:277},{ciudad:"Maracaibo",casos:100},{ciudad:"Valencia",casos:27},
+      {ciudad:"Barquisimeto",casos:27},{ciudad:"Guayana City",casos:24},{ciudad:"Maracay",casos:19},
+      {ciudad:"Cabimas",casos:8},{ciudad:"Barinas",casos:8},{ciudad:"Lecheria",casos:7},{ciudad:"Otras ciudades",casos:24}
+    ],
+    viaje_activo: [{categoria:"Si",casos:430,pct:82.5},{categoria:"No",casos:89,pct:17.1},{categoria:"No especificado",casos:2,pct:0.4}],
+    reportado_seguro: [{categoria:"Si",casos:497,pct:95.4},{categoria:"No",casos:21,pct:4.0},{categoria:"No especificado",casos:3,pct:0.6}],
+    seguro_pago: [
+      {categoria:"Si",casos:87,pct:16.7,usuario_casos:75,usuario_monto_usd:20233.78,conductor_casos:12,conductor_monto_bs:9710336.96},
+      {categoria:"Pendiente",casos:43,pct:8.3},{categoria:"No",casos:192,pct:36.9},{categoria:"No especificado",casos:199,pct:38.2}
+    ],
+    comparacion: [
+      {campo:"Total de casos",categoria:"Total",slack_casos:423,slack_pct:100,nuevo_casos:521,nuevo_pct:100},
+      {campo:"Viaje activo",categoria:"Si",slack_casos:341,slack_pct:80.6,nuevo_casos:430,nuevo_pct:82.5},
+      {campo:"Viaje activo",categoria:"No",slack_casos:43,slack_pct:10.2,nuevo_casos:89,nuevo_pct:17.1},
+      {campo:"Viaje activo",categoria:"No especificado",slack_casos:39,slack_pct:9.2,nuevo_casos:2,nuevo_pct:0.4},
+      {campo:"Quien reporto",categoria:"Ambos",slack_casos:153,slack_pct:36.2,nuevo_casos:null,nuevo_pct:null},
+      {campo:"Quien reporto",categoria:"Conductor",slack_casos:150,slack_pct:35.5,nuevo_casos:256,nuevo_pct:49.1},
+      {campo:"Quien reporto",categoria:"Usuario",slack_casos:98,slack_pct:23.2,nuevo_casos:265,nuevo_pct:50.9},
+      {campo:"Quien reporto",categoria:"No especificado",slack_casos:22,slack_pct:5.2,nuevo_casos:0,nuevo_pct:0},
+      {campo:"Reportado a seguro",categoria:"Si",slack_casos:22,slack_pct:5.2,nuevo_casos:497,nuevo_pct:95.4},
+      {campo:"Reportado a seguro",categoria:"No",slack_casos:400,slack_pct:94.6,nuevo_casos:21,nuevo_pct:4.0},
+      {campo:"Reportado a seguro",categoria:"No especificado",slack_casos:1,slack_pct:0.2,nuevo_casos:3,nuevo_pct:0.6},
+      {campo:"Seguro pago",categoria:"Si",slack_casos:0,slack_pct:0,nuevo_casos:87,nuevo_pct:16.7},
+      {campo:"Seguro pago",categoria:"Pendiente",slack_casos:null,slack_pct:null,nuevo_casos:43,nuevo_pct:8.3},
+      {campo:"Seguro pago",categoria:"No",slack_casos:0,slack_pct:0,nuevo_casos:192,nuevo_pct:36.9},
+      {campo:"Seguro pago",categoria:"No especificado",slack_casos:423,slack_pct:100,nuevo_casos:199,nuevo_pct:38.2}
+    ]
+  }
+};
 
 (function(){
   var fmtInt = new Intl.NumberFormat('es-VE');
@@ -174,30 +216,56 @@ var COMPARACION = [
   function fmtPct(v){ return (Math.round(v*10)/10) + '%'; }
   function showTip(e,html){ tooltip.innerHTML=html; tooltip.style.opacity=1; tooltip.style.left=(e.clientX+14)+'px'; tooltip.style.top=(e.clientY+14)+'px'; }
   function hideTip(){ tooltip.style.opacity=0; }
-  function row(rows, where){ return rows.find(function(r){ return Object.keys(where).every(function(k){ return String(r[k])===String(where[k]); }); }); }
-
-  var total = row(COMPARACION,{campo:'Total de casos',categoria:'Total'});
-  document.getElementById('t-total').textContent = fmtInt.format(total.nuevo_casos);
-  document.getElementById('t-delta').textContent = '+'+fmtInt.format(total.nuevo_casos-total.slack_casos)+' vs reporte Slack ('+fmtInt.format(total.slack_casos)+')';
-
-  var viaje = row(CATEGORIAS,{dimension:'viaje_activo',categoria:'Si'});
-  document.getElementById('t-viaje-pct').textContent = fmtPct(viaje.pct);
-  document.getElementById('t-viaje-casos').textContent = fmtInt.format(viaje.casos)+' casos';
-
-  var rep = row(CATEGORIAS,{dimension:'reportado_seguro',categoria:'Si'});
-  document.getElementById('t-rep-pct').textContent = fmtPct(rep.pct);
-  document.getElementById('t-rep-casos').textContent = fmtInt.format(rep.casos)+' casos';
-
-  var pago = row(CATEGORIAS,{dimension:'seguro_pago',categoria:'Si'});
-  document.getElementById('t-pago-pct').textContent = fmtPct(pago.pct);
-  document.getElementById('t-pago-usuario').textContent = 'Usuario: '+fmtInt.format(pago.usuario_casos)+' casos · '+fmtMoney.format(pago.usuario_monto_usd);
-  document.getElementById('t-pago-conductor').textContent = 'Conductor: '+fmtInt.format(pago.conductor_casos)+' casos · Bs. '+fmtBs.format(pago.conductor_monto_bs);
-
+  function row(rows, cat){ return rows.find(function(r){ return r.categoria===cat; }); }
   function ns(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); }
 
-  function drawMes(){
+  var current = 'conductor';
+
+  function render(key){
+    current = key;
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===key); });
+    var d = DATA[key];
+
+    document.getElementById('t-total').textContent = fmtInt.format(d.total);
+    if(key==='general'){
+      var slackTotal = row(d.comparacion.filter(function(r){return r.campo==='Total de casos';}),'Total').slack_casos;
+      document.getElementById('t-delta').textContent = '+'+fmtInt.format(d.total-slackTotal)+' vs reporte Slack ('+fmtInt.format(slackTotal)+')';
+    } else {
+      document.getElementById('t-delta').textContent = fmtPct(d.total/DATA.general.total*100)+' del total general ('+fmtInt.format(DATA.general.total)+')';
+    }
+
+    var viaje = row(d.viaje_activo,'Si');
+    document.getElementById('t-viaje-pct').textContent = fmtPct(viaje.pct);
+    document.getElementById('t-viaje-casos').textContent = fmtInt.format(viaje.casos)+' casos';
+
+    var rep = row(d.reportado_seguro,'Si');
+    document.getElementById('t-rep-pct').textContent = fmtPct(rep.pct);
+    document.getElementById('t-rep-casos').textContent = fmtInt.format(rep.casos)+' casos';
+
+    var pago = row(d.seguro_pago,'Si');
+    document.getElementById('t-pago-pct').textContent = fmtPct(pago.pct);
+    if(key==='general'){
+      document.getElementById('t-pago-l1').textContent = 'Usuario: '+fmtInt.format(pago.usuario_casos)+' casos · '+fmtMoney.format(pago.usuario_monto_usd);
+      document.getElementById('t-pago-l2').textContent = 'Conductor: '+fmtInt.format(pago.conductor_casos)+' casos · Bs. '+fmtBs.format(pago.conductor_monto_bs);
+    } else if(key==='usuario'){
+      document.getElementById('t-pago-l1').textContent = fmtInt.format(pago.casos)+' casos · '+fmtMoney.format(pago.monto_usd);
+      document.getElementById('t-pago-l2').textContent = '';
+    } else {
+      document.getElementById('t-pago-l1').textContent = fmtInt.format(pago.casos)+' casos · Bs. '+fmtBs.format(pago.monto_bs);
+      document.getElementById('t-pago-l2').textContent = '';
+    }
+
+    drawMes(d.por_mes);
+    drawCiudad(d.por_ciudad);
+    drawCatGrid(d);
+    document.getElementById('cmp-section').style.display = (key==='general') ? '' : 'none';
+    if(key==='general') drawTable(d.comparacion);
+  }
+
+  function drawMes(rows0){
     var svg = document.getElementById('svg-mes');
-    var rows = POR_MES.slice().sort(function(a,b){return a.orden-b.orden;});
+    svg.innerHTML = '';
+    var rows = rows0.slice().sort(function(a,b){ return a.orden-b.orden; });
     var W=900,H=220,padL=30,padR=10,padT=14,padB=28;
     var innerW=W-padL-padR, innerH=H-padT-padB;
     var max = Math.max.apply(null, rows.map(function(r){return r.casos;}));
@@ -218,9 +286,10 @@ var COMPARACION = [
     });
   }
 
-  function drawCiudad(){
+  function drawCiudad(rows0){
     var svg = document.getElementById('svg-ciudad');
-    var rows = POR_CIUDAD.slice().sort(function(a,b){return b.casos-a.casos;});
+    svg.innerHTML = '';
+    var rows = rows0.slice().sort(function(a,b){ return b.casos-a.casos; });
     var W=900,H=280,padL=128,padR=46,padT=6,padB=6;
     var innerW=W-padL-padR;
     var rh=(H-padT-padB)/rows.length;
@@ -242,20 +311,20 @@ var COMPARACION = [
   }
 
   var PANELS = [
-    {dim:'viaje_activo', campo:'Viaje activo', title:'Viaje activo', order:['Si','No','No especificado']},
-    {dim:'quien_reporto', campo:'Quien reporto', title:'Quién reportó', order:['Usuario','Conductor']},
-    {dim:'reportado_seguro', campo:'Reportado a seguro', title:'Reportado a seguro', order:['Si','No','No especificado']},
-    {dim:'seguro_pago', campo:'Seguro pago', title:'Seguro pagó', order:['Si','Pendiente','No','No especificado']}
+    {key:'viaje_activo', campo:'Viaje activo', title:'Viaje activo', order:['Si','No','No especificado']},
+    {key:'reportado_seguro', campo:'Reportado a seguro', title:'Reportado a seguro', order:['Si','No','No especificado']},
+    {key:'seguro_pago', campo:'Seguro pago', title:'Seguro pagó', order:['Si','Pendiente','No','No especificado']}
   ];
-  var BARCOLOR = {'Si':'var(--ok)','No':'var(--bad)','Pendiente':'var(--warn)','No especificado':'var(--border)','Usuario':'var(--accent)','Conductor':'var(--accent2)'};
+  var BARCOLOR = {'Si':'var(--ok)','No':'var(--bad)','Pendiente':'var(--warn)','No especificado':'var(--border)'};
 
-  function drawCatGrid(){
+  function drawCatGrid(d){
     var grid = document.getElementById('cat-grid');
+    grid.innerHTML = '';
     PANELS.forEach(function(p){
       var card = document.createElement('div'); card.className='cat-card';
       var h3 = document.createElement('h3'); h3.textContent = p.title; card.appendChild(h3);
       p.order.forEach(function(catName){
-        var r = CATEGORIAS.find(function(x){ return x.dimension===p.dim && x.categoria===catName; });
+        var r = d[p.key].find(function(x){ return x.categoria===catName; });
         if(!r) return;
         var line=document.createElement('div'); line.className='bar-row';
         var lab=document.createElement('span'); lab.className='bar-label'; lab.textContent = catName==='Si'?'Sí':catName; line.appendChild(lab);
@@ -266,24 +335,27 @@ var COMPARACION = [
         line.appendChild(val);
         card.appendChild(line);
       });
-      var slackRows = COMPARACION.filter(function(r){ return r.campo===p.campo; });
-      if(slackRows.length){
-        var cmp=document.createElement('div'); cmp.className='cmp-line';
-        cmp.textContent = 'Reporte Slack — ' + slackRows.map(function(r){
-          var lab = r.categoria==='Si'?'Sí':r.categoria;
-          var v = (r.slack_casos===null||r.slack_casos===undefined) ? 'sin dato' : fmtInt.format(r.slack_casos)+' ('+fmtPct(r.slack_pct)+')';
-          return lab+': '+v;
-        }).join(', ');
-        card.appendChild(cmp);
+      if(current==='general'){
+        var slackRows = DATA.general.comparacion.filter(function(r){ return r.campo===p.campo; });
+        if(slackRows.length){
+          var cmp=document.createElement('div'); cmp.className='cmp-line';
+          cmp.textContent = 'Reporte Slack — ' + slackRows.map(function(r){
+            var lab = r.categoria==='Si'?'Sí':r.categoria;
+            var v = (r.slack_casos===null||r.slack_casos===undefined) ? 'sin dato' : fmtInt.format(r.slack_casos)+' ('+fmtPct(r.slack_pct)+')';
+            return lab+': '+v;
+          }).join(', ');
+          card.appendChild(cmp);
+        }
       }
       grid.appendChild(card);
     });
   }
 
-  function drawTable(){
+  function drawTable(comparacion){
     var tbody = document.querySelector('#cmp-table tbody');
+    tbody.innerHTML = '';
     var lastCampo = null;
-    COMPARACION.forEach(function(r){
+    comparacion.forEach(function(r){
       var tr = document.createElement('tr');
       var tdCampo=document.createElement('td'); tdCampo.textContent = r.campo===lastCampo?'':r.campo; tdCampo.className='group'; lastCampo=r.campo; tr.appendChild(tdCampo);
       var tdCat=document.createElement('td'); tdCat.textContent = r.categoria==='Si'?'Sí':r.categoria; tr.appendChild(tdCat);
@@ -295,7 +367,13 @@ var COMPARACION = [
     });
   }
 
-  drawMes(); drawCiudad(); drawCatGrid(); drawTable();
+  document.getElementById('tabs').addEventListener('click', function(e){
+    var btn = e.target.closest('.tab-btn');
+    if(!btn) return;
+    render(btn.dataset.tab);
+  });
+
+  render('conductor');
 })();
 </script>
 </body>
